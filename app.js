@@ -48,7 +48,8 @@ const userSchema = new mongoose.Schema({
   email: String,
   password: String,
   googleId: String,
-  facebookId: String
+  facebookId: String,
+  secret: String
 });
 // Secrect encryption key: longstring unguessable
 // Add encryption as PLUGIN to the schema (plugins extend schema's functionalities)
@@ -159,7 +160,27 @@ app.get("/register", function(req, res){
 app.get("/secrets", function(req, res){
   // Verify that user is authenticated (isAuthenticated is from passportLocalMongoose)
   if (req.isAuthenticated()) {
-    res.render("secrets");
+    // Load all Secrets
+    User.find({secret: {$ne : null}}, function(err, foundUsers){
+      if (err) {
+        console.log(err);
+      } else {
+        if (foundUsers) {
+          res.render("secrets", {usersWithSecrets: foundUsers});
+        }
+      }
+    });
+  } else {
+    // here the cookie is deserialized
+    // force user to login page
+    res.redirect("/login");
+  }
+});
+
+app.get("/submit", function(req, res){
+  // Verify that user is authenticated (isAuthenticated is from passportLocalMongoose)
+  if (req.isAuthenticated()) {
+    res.render("submit");
   } else {
     // here the cookie is deserialized
     // force user to login page
@@ -171,6 +192,29 @@ app.get("/logout", function(req, res){
   // .logout is method from passport
   req.logout();
   res.redirect("/");
+});
+
+app.post("/submit", function(req, res){
+  const submittedSecret = req.body.secret;
+  // Find current user in database
+  // NOTE: passport saves the user's details in the req parameter req.user
+  const userId = req.user._id;
+  User.findOne(userId, function(err, foundUser){
+    if (err) {
+      console.log(err);
+    } else {
+      if (foundUser) {
+        foundUser.secret = submittedSecret;
+        foundUser.save(function(err){
+          if (err) {
+            console.log(err);
+          } else {
+            res.redirect("/secrets");
+          }
+        });
+      }
+    }
+  });
 });
 
 app.post("/register", function(req, res){
